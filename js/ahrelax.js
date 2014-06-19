@@ -4,18 +4,16 @@
  * 	
  * 	Inspired by https://medium.com/@dhg/parallax-done-right-82ced812e61c
  */
-
-( function( $, window, undefined ) {
+define(["jquery"], function($) {
 
 	var
-	//Targeted elements
-	pieceTop = 0, pieceBot = 0,
-	
 	//Viewport
-	vpTop = 0, vpBottom = 0, vpHeight = 0, vpWidth = 0,
-	
+	vpTop = 0, 
+	vpBottom = 0, 
+	vpHeight = 0, 
+	vpWidth = 0,
+	vpMidpoint = (( vpBottom - vpTop ) / 2 ) + vpTop,
 	//Other
-	relativeTop = 0,
 	scrollInterval = 0,
 	$window =	$(window),
 	$body =	$('body'),
@@ -25,34 +23,50 @@
 	 * 	New effects can be defined for use here
 	 */
 	piece = [{
-		wrap: '#move-me',
-		rate: 0.2,
+		wrap: '#piece-station',
+		target: null,
+		rate: -0.3,
+		tweak: 0,//for tweakage
 		effect: 'bgSlideVertical'
 
-		// These also get created on setup(), 
-		// just putting them here for brevity:
-		// starts: 0
-		// ends: 0
-		// lasts: 0
+		// Also gets the following on the fly:
+		// starts: 0,
+		// ends: 0,
+		// lasts: 0,
+		// height: 
+		// progressIn
+		// progressOut
+		// midpoint
 	}],	
 
 	/*
 	 *	Effects for assigning to our animatable pieces
-	 *	In theory you should be able to contain custom 
-	 *	functions in here that you can assign to elements.
 	 */
 	effect = {
 
-		bgSlideVertical: function ( piece ) {
+		bgSlideVertical: function ( piece, relativeTop ) {
 
-			var newvalue = ( relativeTop * piece.rate ).toFixed( 2 );
+			var newvalue = ( relativeTop * piece.rate ).toFixed( 2 );	
+
+			//If the rate is negative, background position should be 
+			//shifted up so that it can move down without leaving a gap.
+			newvalue -= piece.rate < 0 ? piece.height - piece.tweak : 0;
 
 			$( piece.wrap ).css( 'background-position', '0 ' + newvalue + 'px' );
+
+		},
+
+		elementSlideVertical: function ( piece, relativeTop ) {
+
+			var newvalue = ( relativeTop * piece.rate ).toFixed( 2 );	
+
+			newvalue -= piece.rate < 0 ? piece.height - piece.tweak : 0;
+
+			$( piece.wrap ).css( 'transform', 'translate3d(0,' + newvalue + 'px,0' );
 
 		}
 
 	};
-
 
 
 	/*
@@ -78,6 +92,9 @@
 			
 			//End of active section
 			piece[i].ends = $pw.offset().top + $pw.height();
+
+			//Save this so it doesn't need to calculate it every 10ms
+			piece[i].height = $pw.height();
 			
 			//Ratio of section height to viewport height... has to be useful for something...
 			piece[i].lasts =  $pw.height() / vpHeight;			
@@ -88,7 +105,7 @@
 
 
 	/*
-	 *	Position update, fires every 10ms 
+	 *	Animate 
 	 */
 	posUpdate = function () {
 
@@ -104,11 +121,6 @@
 	
 
 
-
-	/*
-	 *	Update the top and bottom offset of the page
-	 *	from the top of the document
-	 */
 	setVpTop = function() {
 
 		// Viewport top
@@ -121,31 +133,83 @@
 
 
 
-	/*
-	 *	Loop through all of the objects in 'piece'
-	 *	and if they're within our viewport then
-	 *	fire the function that's assigned to them
-	 */
+	calcVisibilty = function ( piece ) {
+
+		var
+		$pieceWrap	= $(piece.wrap),
+		pieceTop	= piece.starts,
+		pieceBot	= piece.ends,
+		//Element is visible
+		inView = pieceTop < vpBottom && pieceBot > vpTop;
+
+		if ( inView ) {
+			$pieceWrap.addClass('inView');
+		} else {
+			$pieceWrap.removeClass('inView');
+			return inView;
+		}
+		
+		var
+		//Midpoint of viewport in relation to page
+		vpMidpoint = (( vpBottom - vpTop ) / 2 ) + vpTop,
+		//Midpoint of targeted piece in relation to page
+		pieceMidpoint = (( pieceBot - pieceTop ) / 2 ) + pieceTop,
+		//0% when it just comes into vp, 100% when midpoints match
+		progressIn = 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) < 1  ? 	( 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 )).toFixed( 2 ) : 1;
+		//0% when when midpoints match, 100% when it exits vp
+		progressOut = 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) > 1 ? 	((( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) * -1 ).toFixed( 2 ) : 0;
+
+		piece.progressIn = progressIn;
+		piece.progressOut = progressOut;
+		piece.midpoint = pieceMidpoint;
+
+
+		if ( progressIn > 0.5 ){
+
+			$pieceWrap.addClass('mostInView');
+			$pieceWrap.addClass('beenInView');
+
+		} else {
+
+			$pieceWrap.removeClass('mostInView');
+
+		}
+
+
+		return inView;
+
+	};
+
+
+
 	animatePieces = function () {
 		
 		for (var i = piece.length - 1; i >= 0; i--) {
 
-			pieceTop = piece[i].starts;
-			pieceBot = piece[i].ends;
-			relativeTop = pieceTop - vpBottom;
+			var 
+			$pieceWrap = $( piece[i].wrap ),
+			inview = false,
+			pieceTop = piece[i].starts,
+			pieceBot = piece[i].ends,
+			relativeTop;
 
-			//element is in view if it's top offset is less than vp bottom's offset, 
-			//and its bottom offset is greater than vp top's offset.
-			if ( pieceTop < vpBottom && pieceBot > vpTop ) {
+			inview = calcVisibilty( piece[i] );
+			
+			//element is in view if it's top is less than vp bottom, and its bottom is greater than vp top
+			if ( inview ) {
+
+				relativeTop = pieceTop - vpBottom;
 				
 				switch ( piece[i].effect ){
 
 					case 'bgSlideVertical':
-						effect.bgSlideVertical( piece[i] );
+						effect.bgSlideVertical( piece[i], relativeTop );
 						break;
 
-					//Add more custom functions here 
-					//when they've been defined up top
+					// case 'opacity':
+					// 	effect.opacity( piece[i] );
+					// 	break;
+
 				}
 
 			}
@@ -158,6 +222,10 @@
 
 
 
+
+
+
+
 	/*
 	 *	Initialise page 	
 	 */
@@ -165,23 +233,12 @@
 
 		//Save necessary widths, heights, and other important factors
 		setup();
-
 		//Update them on window resize
 		$window.resize( setup );
-
 		//Update the page every 10ms
 		scrollInterval = setInterval( posUpdate, 10 );
 		
 	};
 
-
-	///////
-	init();
-	///////
-
-
-})( jQuery, window );
-
-
-
+});
 
