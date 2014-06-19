@@ -45,7 +45,7 @@
 
 		bgSlideVertical: function ( piece ) {
 
-			var newvalue = relativeTop * piece.rate;
+			var newvalue = ( relativeTop * piece.rate ).toFixed( 2 );
 
 			$( piece.wrap ).css( 'background-position', '0 ' + newvalue + 'px' );
 
@@ -175,7 +175,10 @@
 	};
 
 
+	///////
 	init();
+	///////
+
 
 })( jQuery, window );
 
