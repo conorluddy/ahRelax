@@ -19,25 +19,53 @@ define(["jquery"], function($) {
 	$body =	$('body'),
 
 	/*
+	 * These are the classes that get applied to each 'piece'
+	 */
+	viewClass = {
+		pieceToBeUsed: 'ar-piece',
+		notYetBeenInView: 'ar-unSeen',
+		hasBeenInView: 'ar-beenInView',
+		currentlyInView: 'ar-inView',
+		mostlyInView:  'ar-mostInView'
+	},
+
+	/*
 	 *	Targeted pieces or elements
 	 * 	New effects can be defined for use here
 	 */
 	piece = [{
-		wrap: '#piece-station',
-		target: null,
+		wrap: '#piece-clients',
 		rate: -0.3,
-		tweak: 0,//for tweakage
+		tweak: -800,//for tweakage
 		effect: 'bgSlideVertical'
 
-		// Also gets the following on the fly:
-		// starts: 0,
-		// ends: 0,
-		// lasts: 0,
-		// height: 
-		// progressIn
+		// Pieces also gets the following properties on the fly:
+		// starts
+		// ends
+		// lasts
+		// height 
+		// progressIn - 0-1, maxes out at 1 when the piece is actually taking up some vp space
 		// progressOut
 		// midpoint
+	},{
+		wrap: '#piece-skills',
+		rate: -0.3,
+		tweak: -800,//for tweakage
+		effect: 'bgSlideVertical'
+	},{
+		//Just apply the classes used for visibility and don't do any parallaxy stuff
+		wrap: '.row-about' 
+	},{
+		//Just apply the classes used for visibility and don't do any parallaxy stuff
+		wrap: '.row-clients' 
+	},{
+		//Just apply the classes used for visibility and don't do any parallaxy stuff
+		wrap: '.row-skills' 
+	},{
+		//Just apply the classes used for visibility and don't do any parallaxy stuff
+		wrap: '.row-work' 
 	}],	
+
 
 	/*
 	 *	Effects for assigning to our animatable pieces
@@ -58,11 +86,11 @@ define(["jquery"], function($) {
 
 		elementSlideVertical: function ( piece, relativeTop ) {
 
-			var newvalue = ( relativeTop * piece.rate ).toFixed( 2 );	
+			// var newvalue = ( relativeTop * piece.rate ).toFixed( 2 );	
 
-			newvalue -= piece.rate < 0 ? piece.height - piece.tweak : 0;
+			// newvalue -= piece.rate < 0 ? piece.height - piece.tweak : 0;
 
-			$( piece.wrap ).css( 'transform', 'translate3d(0,' + newvalue + 'px,0' );
+			// $( piece.wrap ).css( 'transform', 'translate3d(0,' + newvalue + 'px,0' );
 
 		}
 
@@ -86,6 +114,9 @@ define(["jquery"], function($) {
 		for (var i = piece.length - 1; i >= 0; i--) {
 			
 			$pw = $( piece[i].wrap );
+
+			//Add this to every piece and remove it once they're in view
+			$pw.addClass( viewClass.notYetBeenInView );
 
 			//Start of active section
 			piece[i].starts = $pw.offset().top;
@@ -140,13 +171,19 @@ define(["jquery"], function($) {
 		pieceTop	= piece.starts,
 		pieceBot	= piece.ends,
 		//Element is visible
-		inView = pieceTop < vpBottom && pieceBot > vpTop;
+		inview = pieceTop < vpBottom && pieceBot > vpTop;
 
-		if ( inView ) {
-			$pieceWrap.addClass('inView');
+		if ( inview ) {
+
+			$pieceWrap.addClass( viewClass.currentlyInView );
+			$pieceWrap.addClass( viewClass.hasBeenInView );
+			//
+			$pieceWrap.removeClass( viewClass.notYetBeenInView );
+
 		} else {
-			$pieceWrap.removeClass('inView');
-			return inView;
+
+			$pieceWrap.removeClass( viewClass.currentlyInView );
+			return inview;
 		}
 		
 		var
@@ -164,19 +201,19 @@ define(["jquery"], function($) {
 		piece.midpoint = pieceMidpoint;
 
 
+
+
+		//Add, change and remove these as you see fit:
+
 		if ( progressIn > 0.5 ){
-
-			$pieceWrap.addClass('mostInView');
-			$pieceWrap.addClass('beenInView');
-
+			$pieceWrap.addClass( viewClass.mostlyInView );
 		} else {
-
-			$pieceWrap.removeClass('mostInView');
-
+			$pieceWrap.removeClass( viewClass.mostlyInView );
 		}
 
 
-		return inView;
+
+		return inview;
 
 	};
 
@@ -200,15 +237,23 @@ define(["jquery"], function($) {
 
 				relativeTop = pieceTop - vpBottom;
 				
-				switch ( piece[i].effect ){
+				if( typeof( piece[i].effect ) !== 'undefined' ) {
 
-					case 'bgSlideVertical':
-						effect.bgSlideVertical( piece[i], relativeTop );
-						break;
+					switch ( piece[i].effect ){
 
-					// case 'opacity':
-					// 	effect.opacity( piece[i] );
-					// 	break;
+						case 'bgSlideVertical':
+
+							effect.bgSlideVertical( piece[i], relativeTop );
+
+							break;
+				
+						case 'elementSlideVertical':
+
+							effect.elementSlideVertical( piece[i], relativeTop );
+
+							break;
+
+					}
 
 				}
 
