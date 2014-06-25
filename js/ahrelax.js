@@ -22,49 +22,53 @@ define(["jquery"], function($) {
 	 * These are the classes that get applied to each 'piece'
 	 */
 	viewClass = {
+		//Applies to all pieces
 		pieceToBeUsed: 'ar-piece',
+		//Has never been in the viewport
 		notYetBeenInView: 'ar-unSeen',
+		//Has been in the viewport but may or may not still be
 		hasBeenInView: 'ar-beenInView',
+		//Is somewhere in view
 		currentlyInView: 'ar-inView',
-		mostlyInView:  'ar-mostInView'
+		//Is more than 50% of the way into the centre (based on midpoints - may need more accurate implementation)
+		mostlyInView:  'ar-mostInView',
+		//Is more than 50% of the way past the centre (based on midpoints - may need more accurate implementation)
+		mostlyPastView:  'ar-mostlyPastView'
 	},
 
 	/*
 	 *	Targeted pieces or elements
 	 * 	New effects can be defined for use here
+	 *
+	 *    Pieces potentially get the following properties:
+	 *    wrap
+	 *    rate
+	 *    tweak
+	 *    effect
+	 *    starts
+	 *    ends
+	 *    lasts
+	 *    height 
+	 *    progressIn - 0-1, maxes out at 1 when the piece is actually taking up some vp space
+	 *    progressOut
+	 *    midpoint
 	 */
 	piece = [{
 		wrap: '#piece-clients',
 		rate: -0.3,
-		tweak: -800,//for tweakage
-		effect: 'bgSlideVertical'
-
-		// Pieces also gets the following properties on the fly:
-		// starts
-		// ends
-		// lasts
-		// height 
-		// progressIn - 0-1, maxes out at 1 when the piece is actually taking up some vp space
-		// progressOut
-		// midpoint
-	},{
-		wrap: '#piece-skills',
-		rate: -0.3,
-		tweak: -800,//for tweakage
+		tweak: -700,//for tweakage
 		effect: 'bgSlideVertical'
 	},{
 		//Just apply the classes used for visibility and don't do any parallaxy stuff
-		wrap: '.row-about' 
+		wrap: '.row-about',
+		effect: 'fadeOutOnExit',
+		rate: 2
 	},{
 		//Just apply the classes used for visibility and don't do any parallaxy stuff
-		wrap: '.row-clients' 
-	},{
-		//Just apply the classes used for visibility and don't do any parallaxy stuff
-		wrap: '.row-skills' 
-	},{
-		//Just apply the classes used for visibility and don't do any parallaxy stuff
-		wrap: '.row-work' 
+		wrap: '.row-clients'
 	}],	
+
+	
 
 
 	/*
@@ -91,6 +95,14 @@ define(["jquery"], function($) {
 			// newvalue -= piece.rate < 0 ? piece.height - piece.tweak : 0;
 
 			// $( piece.wrap ).css( 'transform', 'translate3d(0,' + newvalue + 'px,0' );
+
+		},
+
+		fadeOutOnExit: function ( piece ) {
+
+			var rate = typeof( piece.rate ) === 'undefined' ? 1 : piece.rate;
+
+			$( piece.wrap ).css( 'opacity', ( 1 - piece.progressOut * rate ).toFixed( 2 ) );
 
 		}
 
@@ -164,7 +176,7 @@ define(["jquery"], function($) {
 
 
 
-	calcVisibilty = function ( piece ) {
+	manageVisibilty = function ( piece ) {
 
 		var
 		$pieceWrap	= $(piece.wrap),
@@ -189,30 +201,33 @@ define(["jquery"], function($) {
 		var
 		//Midpoint of viewport in relation to page
 		vpMidpoint = (( vpBottom - vpTop ) / 2 ) + vpTop,
+
 		//Midpoint of targeted piece in relation to page
-		pieceMidpoint = (( pieceBot - pieceTop ) / 2 ) + pieceTop,
+		pieceMidpoint = 
+			piece.midpoint = (( pieceBot - pieceTop ) / 2 ) + pieceTop,
+
 		//0% when it just comes into vp, 100% when midpoints match
-		progressIn = 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) < 1  ? 	( 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 )).toFixed( 2 ) : 1;
+		progressIn = 
+			piece.progressIn = 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) < 1  ? 	( 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 )).toFixed( 2 ) : 1;
+
 		//0% when when midpoints match, 100% when it exits vp
-		progressOut = 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) > 1 ? 	((( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) * -1 ).toFixed( 2 ) : 0;
-
-		piece.progressIn = progressIn;
-		piece.progressOut = progressOut;
-		piece.midpoint = pieceMidpoint;
-
+		progressOut = 
+			piece.progressOut = 1 - (( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) > 1 ? 	((( vpMidpoint - pieceMidpoint ) / vpHeight * -1 ) * -1 ).toFixed( 2 ) : 0;
 
 
 
 		//Add, change and remove these as you see fit:
 
-		if ( progressIn > 0.5 ){
-			$pieceWrap.addClass( viewClass.mostlyInView );
-		} else {
-			$pieceWrap.removeClass( viewClass.mostlyInView );
-		}
+		//As piece is scrolled towards centre
+		if ( progressIn > 0.5 ) $pieceWrap.addClass( viewClass.mostlyInView );
+		else $pieceWrap.removeClass( viewClass.mostlyInView );
+
+		//As piece is scrolled beyond centre
+		if ( progressOut > 0.5 ) $pieceWrap.addClass( viewClass.mostlyPastView );
+		else $pieceWrap.removeClass( viewClass.mostlyPastView );
 
 
-
+	
 		return inview;
 
 	};
@@ -230,7 +245,7 @@ define(["jquery"], function($) {
 			pieceBot = piece[i].ends,
 			relativeTop;
 
-			inview = calcVisibilty( piece[i] );
+			inview = manageVisibilty( piece[i] );
 			
 			//element is in view if it's top is less than vp bottom, and its bottom is greater than vp top
 			if ( inview ) {
@@ -250,6 +265,12 @@ define(["jquery"], function($) {
 						case 'elementSlideVertical':
 
 							effect.elementSlideVertical( piece[i], relativeTop );
+
+							break;
+
+						case 'fadeOutOnExit':
+
+							effect.fadeOutOnExit( piece[i] );
 
 							break;
 
