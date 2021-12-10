@@ -1,7 +1,7 @@
 ahrelax
 =======
 
-Experimental lightweight JS/jQuery script to facilitate quick scroll based animations.   
+Experimental lightweight JS/jQuery script to facilitate quick scroll based animations. Way out of date - wouldn't recommend using for anything!
 
 Currently less than 1kb minified, but will probably need to grow to be useful.
 
